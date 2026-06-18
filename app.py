@@ -1,6 +1,4 @@
 # Install Streamlit if it's not already installed
-!pip install streamlit -q
-
 import streamlit as st
 import pandas as pd
 import pickle
