@@ -8,27 +8,24 @@ import streamlit as st
 
 st.set_page_config(
     page_title="Volve Oil Recovery Predictor",
-    page_icon="🛢️",
     layout="wide",
 )
 
 st.markdown(
     """
     <style>
-    .main { background-color: #F6F8FA; }
-    .header-title { font-size: 2.1rem; font-weight: 700; color: #14315C; margin-bottom: 0.1rem; }
-    .header-sub { font-size: 1rem; color: #5A6B7B; margin-top: 0; margin-bottom: 1.2rem; }
+    .header-title { font-size: 2.1rem; font-weight: 700; color: #9DC4F0; margin-bottom: 0.1rem; }
+    .header-sub { font-size: 1rem; color: #B7C3D1; margin-top: 0; margin-bottom: 1.2rem; }
     [data-testid="stMetricValue"] { color: #14315C; font-weight: 700; }
     [data-testid="stMetric"] {
         background-color: white; border: 1px solid #E3E8EE; border-radius: 10px;
         padding: 0.8rem 1rem;
     }
     .stButton>button {
-        background-color: #14315C; color: white; border-radius: 6px;
+        background-color: #5B9BD5; color: #0F1620; border-radius: 6px;
         font-weight: 600; border: none; padding: 0.6rem 1rem;
     }
-    .stButton>button:hover { background-color: #2E5984; color: white; }
-    section[data-testid="stSidebar"] { background-color: #FBFCFD; }
+    .stButton>button:hover { background-color: #7FB3E8; color: #0F1620; }
     </style>
     """,
     unsafe_allow_html=True,
