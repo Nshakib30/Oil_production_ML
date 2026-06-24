@@ -238,6 +238,7 @@ def tune_xgboost(X_train, y_train, X_test, y_test):
     return best_pipe, result
 
 
+
 # ---------------------------------------------------------------
 # Figures
 # ---------------------------------------------------------------
@@ -253,6 +254,8 @@ def plot_correlation_heatmap(X_train_scaled, y_train, path):
                 vmin=-1, vmax=1, linewidths=0.5, annot_kws={"size": 9})
     plt.title("Figure 1: Correlation Heatmap, Training Set")
     plt.tight_layout()
+    print("\nFigure1: Correlation Heatmap")
+    plt.show()
     plt.savefig(path, dpi=200, bbox_inches="tight")
     plt.close()
 
@@ -276,6 +279,8 @@ def plot_model_comparison(results_df, path):
     axes[1].legend()
 
     plt.tight_layout()
+    print("\nFigure2: Model Comparison Chart")
+    plt.show()
     plt.savefig(path, dpi=200, bbox_inches="tight")
     plt.close()
 
@@ -290,6 +295,8 @@ def plot_predicted_vs_actual(y_test, y_pred, path):
     plt.title("Figure 2: Predicted vs Actual, Tuned XGBoost")
     plt.legend()
     plt.tight_layout()
+    print("\nFigure2: Model Treadline")
+    plt.show()
     plt.savefig(path, dpi=200, bbox_inches="tight")
     plt.close()
 
@@ -309,16 +316,20 @@ def run_shap_analysis(best_pipe, X_test, output_dir):
     shap_values = explainer.shap_values(X_test_scaled)
 
     shap.summary_plot(shap_values, X_test_scaled, show=False)
+    print("\nFigure3: SHAP summary")
     plt.savefig(f"{output_dir}/figure3_shap_summary.png", dpi=200, bbox_inches="tight")
     plt.close()
 
     explanation = explainer(X_test_scaled)
     shap.plots.waterfall(explanation[0], max_display=10, show=False)
     plt.tight_layout()
+    print("\nFigure4: SHAP Waterfall")
     plt.savefig(f"{output_dir}/figure4_shap_waterfall.png", dpi=200, bbox_inches="tight")
     plt.close()
 
     shap.dependence_plot("PRESSURE_DRAWDOWN", shap_values, X_test_scaled, show=False)
+    print("\nFigure5: SHAP Dependence Drawdown")
+    plt.show()
     plt.savefig(f"{output_dir}/figure5_shap_dependence_drawdown.png", dpi=200, bbox_inches="tight")
     plt.close()
 
@@ -327,6 +338,7 @@ def run_shap_analysis(best_pipe, X_test, output_dir):
     ).sort_values(ascending=False)
 
     return importance_ranking
+
 
 
 # ---------------------------------------------------------------
