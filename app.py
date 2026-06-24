@@ -171,30 +171,41 @@ if st.session_state.last_shap is not None:
         st.caption("Blue = pushes prediction up. Red = pushes prediction down.")
 
     with wf_col:
-        st.caption("Waterfall plot — cumulative feature contributions from baseline")
-        try:
-            exp    = explainer(st.session_state.last_X_scaled)
-            fig_wf = plt.figure(figsize=(6, 5))
-            fig_wf.patch.set_facecolor("white")
-            shap.plots.waterfall(exp[0], max_display=10, show=False)
-            for ax in fig_wf.get_axes():
-                ax.set_facecolor("white")
-                ax.tick_params(colors="black")
-                ax.xaxis.label.set_color("black")
-                ax.yaxis.label.set_color("black")
-                for text in ax.texts:
-                    text.set_color("black")
-                for spine in ax.spines.values():
-                    spine.set_edgecolor("#CCCCCC")
-            buf_wf = io.BytesIO()
-            plt.savefig(buf_wf, format="png", dpi=150,
-                        bbox_inches="tight", facecolor="white")
-            plt.close()
-            buf_wf.seek(0)
-            st.image(buf_wf, use_container_width=True)
-        except Exception as e:
-            st.warning(f"Waterfall unavailable: {e}")
+    st.caption("Waterfall plot — cumulative feature contributions from baseline")
+    try:
+        exp = explainer(st.session_state.last_X_scaled)
 
+        # Don't create fig before calling waterfall — shap opens its own figure.
+        # Set the size via plt.gcf() after shap renders it.
+        shap.plots.waterfall(exp[0], max_display=10, show=False)
+
+        fig_wf = plt.gcf()
+        fig_wf.set_size_inches(9, 6)          # wider = room for long labels on left
+        fig_wf.patch.set_facecolor("white")
+
+        for ax in fig_wf.get_axes():
+            ax.set_facecolor("white")
+            ax.tick_params(colors="black")
+            ax.xaxis.label.set_color("black")
+            ax.yaxis.label.set_color("black")
+            for text in ax.texts:
+                text.set_color("black")
+                text.set_fontsize(9)          # slightly smaller text reduces collision risk
+            for spine in ax.spines.values():
+                spine.set_edgecolor("#CCCCCC")
+
+        # Extra left margin so feature names don't get clipped,
+        # extra right margin so f(x) label doesn't overlap the axis edge
+        fig_wf.subplots_adjust(left=0.35, right=0.88)
+
+        buf_wf = io.BytesIO()
+        plt.savefig(buf_wf, format="png", dpi=150,
+                    bbox_inches="tight", facecolor="white")
+        plt.close()
+        buf_wf.seek(0)
+        st.image(buf_wf, use_container_width=True)
+    except Exception as e:
+        st.warning(f"Waterfall unavailable: {e}")
 # ---------------------------------------------------------------
 # Model performance
 # ---------------------------------------------------------------
