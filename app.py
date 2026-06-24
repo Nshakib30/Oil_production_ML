@@ -191,7 +191,7 @@ if st.session_state.last_shap is not None:
                     spine.set_edgecolor("#CCCCCC")
             buf_wf = io.BytesIO()
             plt.savefig(buf_wf, format="png", dpi=150,
-                        bbox_inches="tight", facecolor="white")
+                         facecolor="white")
             plt.close()
             buf_wf.seek(0)
             st.image(buf_wf, use_container_width=True)
