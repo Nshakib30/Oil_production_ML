@@ -12,7 +12,6 @@ import streamlit as st
 
 st.set_page_config(
     page_title="Volve Oil Recovery Predictor",
-    page_icon="🛢️",
     layout="wide",
 )
 
@@ -49,40 +48,8 @@ def get_explainer(_model):
     return shap.TreeExplainer(_model)
 
 
-@st.cache_data
-def get_beeswarm_image(_explainer, _scaler, feature_cols):
-    """
-    Precompute the beeswarm summary plot from X_test if available.
-    Returns a PNG buffer, or None if X_test is not in the repo.
-    """
-    try:
-        X_test = pd.read_csv("X_test_FINAL.csv")[feature_cols]
-        X_test_scaled = pd.DataFrame(
-            _scaler.transform(X_test), columns=feature_cols
-        )
-        shap_vals = _explainer.shap_values(X_test_scaled)
-
-        fig, ax = plt.subplots(figsize=(7, 5.5))
-        fig.patch.set_facecolor("white")
-        ax.set_facecolor("white")
-        shap.summary_plot(
-            shap_vals, X_test_scaled,
-            plot_type="dot", show=False,
-            max_display=14,
-        )
-        buf = io.BytesIO()
-        plt.savefig(buf, format="png", dpi=150,
-                    bbox_inches="tight", facecolor="white")
-        plt.close()
-        buf.seek(0)
-        return buf
-    except Exception:
-        return None
-
-
 model, scaler, FEATURE_COLS = load_artifacts()
-explainer  = get_explainer(model)
-beeswarm   = get_beeswarm_image(explainer, scaler, FEATURE_COLS)
+explainer = get_explainer(model)
 
 WELLS = [
     "NO 15/9-F-1 C", "NO 15/9-F-11 H", "NO 15/9-F-12 H",
@@ -97,7 +64,7 @@ st.markdown(
 )
 
 # ---------------------------------------------------------------
-# Sidebar — inputs reordered per request
+# Sidebar — inputs
 # ---------------------------------------------------------------
 with st.sidebar:
     st.header("Well Operating Conditions")
@@ -109,7 +76,6 @@ with st.sidebar:
     wht         = st.number_input("Wellhead Temperature, WHT (°C)",0.0, 100.0,  70.0, step=1.0)
     annulus     = st.number_input("Annulus Pressure (psi)",        0.0,  30.0,  15.0, step=0.5)
     choke       = st.number_input("Choke Size (%)",                0.0, 100.0,  50.0, step=1.0)
-    wat_vol     = st.number_input("Water Volume (bbl)",            0.0,1000.0,  50.0, step=10.0)
 
     st.subheader("Production")
     on_stream   = st.slider("On-Stream Hours", 0.0, 24.0, 24.0)
@@ -131,7 +97,6 @@ if predict_clicked:
     row["AVG_CHOKE_SIZE_P"]     = choke
     row["AVG_WHP_P"]            = whp
     row["AVG_WHT_P"]            = wht
-    row["BORE_WAT_VOL"]         = wat_vol
     row["PRESSURE_DRAWDOWN"]    = downhole_p - whp
     row["DOWNHOLE_GAUGE_VALID"] = int(gauge_valid)
     row[f"WELL_{well}"]         = 1
@@ -146,43 +111,47 @@ if predict_clicked:
     st.session_state.last_X_scaled   = pd.DataFrame(X_scaled, columns=FEATURE_COLS)
 
 # ---------------------------------------------------------------
-# Top row — gauge + per-prediction SHAP bar
+# Oil prediction gauge — full width
 # ---------------------------------------------------------------
-col1, col2 = st.columns([1, 1.4])
+st.markdown('<p class="section-heading">Predicted Oil Volume</p>', unsafe_allow_html=True)
+pred = st.session_state.last_prediction or 0
 
-with col1:
-    st.markdown('<p class="section-heading">Predicted Oil Volume</p>', unsafe_allow_html=True)
-    pred = st.session_state.last_prediction or 0
+if st.session_state.last_prediction is None:
+    st.info("Set parameters in the sidebar and click Predict.")
 
-    if st.session_state.last_prediction is None:
-        st.info("Set parameters in the sidebar and click Predict.")
+gauge = go.Figure(go.Indicator(
+    mode="gauge+number",
+    value=pred,
+    number={"suffix": " bbl/day", "font": {"size": 36}},
+    gauge={
+        "axis": {"range": [0, 1000]},
+        "bar": {"color": "#5B9BD5"},
+        "steps": [
+            {"range": [0,   250], "color": "#3A1A1A"},
+            {"range": [250, 600], "color": "#2A2A1A"},
+            {"range": [600,1000], "color": "#1A2E1A"},
+        ],
+    },
+))
+gauge.update_layout(
+    height=300,
+    paper_bgcolor="rgba(0,0,0,0)",
+    font_color="#EDF1F5",
+    margin=dict(t=20, b=10, l=20, r=20),
+)
+st.plotly_chart(gauge, use_container_width=True)
 
-    gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=pred,
-        number={"suffix": " bbl/day", "font": {"size": 36}},
-        gauge={
-            "axis": {"range": [0, 1000]},
-            "bar": {"color": "#5B9BD5"},
-            "steps": [
-                {"range": [0,   250], "color": "#3A1A1A"},
-                {"range": [250, 600], "color": "#2A2A1A"},
-                {"range": [600,1000], "color": "#1A2E1A"},
-            ],
-        },
-    ))
-    gauge.update_layout(
-        height=300,
-        paper_bgcolor="rgba(0,0,0,0)",
-        font_color="#EDF1F5",
-        margin=dict(t=20, b=10, l=20, r=20),
-    )
-    st.plotly_chart(gauge, use_container_width=True)
+# ---------------------------------------------------------------
+# SHAP bar + Waterfall — side by side, below gauge
+# ---------------------------------------------------------------
+if st.session_state.last_shap is not None:
+    st.markdown("---")
+    st.markdown('<p class="section-heading">SHAP Analysis</p>', unsafe_allow_html=True)
 
-with col2:
-    st.markdown('<p class="section-heading">SHAP Analysis — Feature Impact (this prediction)</p>',
-                unsafe_allow_html=True)
-    if st.session_state.last_shap is not None:
+    bar_col, wf_col = st.columns([1.4, 1])
+
+    with bar_col:
+        st.caption("Feature Impact — how each variable pushed this prediction")
         contrib = st.session_state.last_shap.sort_values()
         colors  = ["#BF616A" if v < 0 else "#5B9BD5" for v in contrib.values]
         shap_fig = go.Figure(go.Bar(
@@ -200,27 +169,14 @@ with col2:
         )
         st.plotly_chart(shap_fig, use_container_width=True)
         st.caption("Blue = pushes prediction up. Red = pushes prediction down.")
-    else:
-        st.info("Run a prediction to see the SHAP breakdown.")
-
-# ---------------------------------------------------------------
-# SHAP detailed — waterfall (light bg) + beeswarm summary
-# ---------------------------------------------------------------
-if st.session_state.last_shap is not None:
-    st.markdown("---")
-    st.markdown('<p class="section-heading">SHAP Analysis — Detailed Plots</p>',
-                unsafe_allow_html=True)
-    wf_col, bs_col = st.columns(2)
 
     with wf_col:
-        st.caption("Waterfall plot — how each feature moved this prediction from the baseline")
+        st.caption("Waterfall plot — cumulative feature contributions from baseline")
         try:
-            exp = explainer(st.session_state.last_X_scaled)
-            # shap creates its own figure internally — grab it with gcf() after rendering
-            shap.plots.waterfall(exp[0], max_display=10, show=False)
-            fig_wf = plt.gcf()
-            fig_wf.set_size_inches(9, 6)
+            exp    = explainer(st.session_state.last_X_scaled)
+            fig_wf = plt.figure(figsize=(6, 5))
             fig_wf.patch.set_facecolor("white")
+            shap.plots.waterfall(exp[0], max_display=10, show=False)
             for ax in fig_wf.get_axes():
                 ax.set_facecolor("white")
                 ax.tick_params(colors="black")
@@ -228,10 +184,8 @@ if st.session_state.last_shap is not None:
                 ax.yaxis.label.set_color("black")
                 for text in ax.texts:
                     text.set_color("black")
-                    text.set_fontsize(9)
                 for spine in ax.spines.values():
                     spine.set_edgecolor("#CCCCCC")
-            fig_wf.subplots_adjust(left=0.35, right=0.88)
             buf_wf = io.BytesIO()
             plt.savefig(buf_wf, format="png", dpi=150,
                         bbox_inches="tight", facecolor="white")
@@ -241,17 +195,6 @@ if st.session_state.last_shap is not None:
         except Exception as e:
             st.warning(f"Waterfall unavailable: {e}")
 
-    with bs_col:
-        st.caption("Beeswarm plot — SHAP distribution across all test predictions "
-                   "(colour = feature value, spread = impact range)")
-        if beeswarm is not None:
-            st.image(beeswarm, use_container_width=True)
-        else:
-            st.info(
-                "Add X_test_FINAL.csv to the repo to enable the beeswarm summary plot. "
-                "It requires the full test set to show the distribution across all predictions."
-            )
-
 # ---------------------------------------------------------------
 # Model performance
 # ---------------------------------------------------------------
@@ -259,9 +202,9 @@ st.markdown("---")
 st.markdown('<p class="section-heading">Model Performance (Held-Out Test Set)</p>',
             unsafe_allow_html=True)
 m1, m2, m3 = st.columns(3)
-m1.metric("R²", "0.945", help="Proportion of variance explained. Closer to 1 is better.")
-m2.metric("RMSE", "58.78 bbl/day", help="Root Mean Squared Error — average prediction error.")
-m3.metric("MAE",  "30.94 bbl/day", help="Mean Absolute Error — typical day-to-day error.")
+m1.metric("R²", "0.935", help="Proportion of variance explained. Closer to 1 is better.")
+m2.metric("RMSE", "63.99 bbl/day", help="Root Mean Squared Error — average prediction error.")
+m3.metric("MAE",  "34.20 bbl/day", help="Mean Absolute Error — typical day-to-day error.")
 
 st.caption(
     "Tuned XGBoost model trained on the Equinor Volve field dataset. "
